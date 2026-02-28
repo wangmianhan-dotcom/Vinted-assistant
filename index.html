@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Vinted 闲置助手</title>
+  <style>
+    :root {
+      --bg: #f4eee3;
+      --card: #ffffff;
+      --accent: #1f4f3e;
+      --text: #1d2923;
+      --subtle: #6b7a72;
+      --border: #dde5df;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding-bottom: calc(76px + env(safe-area-inset-bottom));
+    }
+    .container { max-width: 760px; margin: 0 auto; padding: 16px; }
+    .header h1 { margin: 4px 0; font-size: 1.55rem; }
+    .header p { margin: 0 0 12px; color: var(--subtle); }
+    .tabs { display: none; }
+    .tabs.active { display: block; }
+    .grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-bottom: 12px;
+    }
+    .card, .stat {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+      margin-bottom: 12px;
+    }
+    .stat span { font-size: .85rem; color: var(--subtle); display: block; }
+    .stat strong { font-size: 1.2rem; color: var(--accent); }
+    h2, h3 { margin: 6px 0 10px; }
+    label { display: block; font-size: .95rem; font-weight: 600; margin-bottom: 10px; }
+    input, select, textarea, button {
+      width: 100%;
+      margin-top: 6px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 1rem;
+      background: #fff;
+      color: var(--text);
+    }
+    textarea { resize: vertical; }
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      min-height: 48px;
+      font-weight: 700;
+    }
+    .toolbar { display: grid; gap: 8px; grid-template-columns: 1fr 132px; }
+    .photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+    .photo-grid img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 8px; }
+    .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .item { border: 1px solid #e5ece7; border-radius: 12px; padding: 10px; display: grid; gap: 8px; }
+    .meta { color: var(--subtle); font-size: .92rem; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .secondary { background: #f3faf6; color: var(--accent); border: 1px solid #cfe0d7; }
+    .danger { background: #fdeeee; color: #8f2121; border: 1px solid #f1c8c8; }
+    .tier { margin: 0; padding-left: 18px; }
+    .logic { color: var(--subtle); line-height: 1.45; margin-top: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+    th, td { border: 1px solid var(--border); text-align: left; vertical-align: top; padding: 8px; }
+    th { background: #f4faf7; color: var(--accent); }
+    .bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-top: 1px solid var(--border);
+      background: #fff;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+      z-index: 10;
+    }
+    .nav {
+      border: none;
+      background: transparent;
+      min-height: 44px;
+      font-size: 1rem;
+    }
+    .nav.active { color: var(--accent); font-weight: 700; }
+    @media (min-width: 768px) {
+      .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <h1>Vinted 闲置助手</h1>
+      <p>库存管理 · AI描述 · 定价参考（本地保存）</p>
+    </header>
+
+    <section id="inventory" class="tabs active">
+      <div class="grid">
+        <article class="stat"><span>总商品数</span><strong id="s-total">0</strong></article>
+        <article class="stat"><span>在售数量</span><strong id="s-live">0</strong></article>
+        <article class="stat"><span>已售数量</span><strong id="s-sold">0</strong></article>
+        <article class="stat"><span>总收入 (€)</span><strong id="s-revenue">0.00</strong></article>
+      </div>
+
+      <section class="card">
+        <h2>添加 / 编辑商品</h2>
+        <form id="item-form">
+          <input type="hidden" id="id" />
+          <label>名称<input id="name" required /></label>
+          <label>品牌<input id="brand" required /></label>
+          <label>类别
+            <select id="category" required>
+              <option value="">请选择</option>
+              <option>上衣</option><option>裤子</option><option>外套</option><option>裙子</option><option>鞋子</option><option>包包</option>
+            </select>
+          </label>
+          <label>尺码<input id="size" required /></label>
+          <label>颜色<input id="color" required /></label>
+          <label>成色
+            <select id="condition" required>
+              <option value="">请选择</option>
+              <option>全新带吊牌</option><option>近新</option><option>良好</option><option>明显使用痕迹</option>
+            </select>
+          </label>
+          <label>原价 (€，可选)<input id="origin" type="number" min="0" step="0.01" /></label>
+          <label>当前售价 (€，可选)<input id="sale" type="number" min="0" step="0.01" /></label>
+          <label>状态
+            <select id="status" required>
+              <option>草稿</option><option>在售中</option><option>询问中</option><option>已售出</option><option>已发货</option>
+            </select>
+          </label>
+          <label>照片（最多6张，可调用手机摄像头）
+            <input id="photos" type="file" accept="image/*" capture="environment" multiple />
+          </label>
+          <div id="preview" class="photo-grid"></div>
+          <button class="btn" type="submit">保存商品</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>库存列表</h2>
+        <div class="toolbar">
+          <input id="search" placeholder="搜索名称/品牌/颜色" />
+          <select id="filter">
+            <option value="all">全部状态</option>
+            <option>草稿</option><option>在售中</option><option>询问中</option><option>已售出</option><option>已发货</option>
+          </select>
+        </div>
+        <ul id="list" class="list"></ul>
+      </section>
+    </section>
+
+    <section id="ai" class="tabs">
+      <section class="card">
+        <h2>AI描述生成</h2>
+        <label>选择库存商品
+          <select id="pick"><option value="">请选择商品</option></select>
+        </label>
+        <label>语言
+          <select id="lang">
+            <option value="de">Deutsch</option>
+            <option value="en">English</option>
+            <option value="zh">中文</option>
+          </select>
+        </label>
+        <button id="gen" type="button" class="btn">生成描述与定价建议</button>
+
+        <h3>描述</h3>
+        <textarea id="desc" rows="8" readonly></textarea>
+
+        <h3>三档价格建议 (€)</h3>
+        <ul id="tiers" class="tier"></ul>
+        <p id="logic" class="logic"></p>
+      </section>
+    </section>
+
+    <section id="pricing" class="tabs">
+      <section class="card">
+        <h2>定价参考（类别 × 成色）</h2>
+        <div id="table-wrap"></div>
+      </section>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="nav active" data-tab="inventory">库存</button>
+    <button class="nav" data-tab="ai">AI描述</button>
+    <button class="nav" data-tab="pricing">定价</button>
+  </nav>
+
+  <script>
+    const KEY = 'vinted_items_v2';
+    const refs = {
+      上衣: {'全新带吊牌':[18,45], 近新:[14,32], 良好:[9,22], '明显使用痕迹':[4,12]},
+      裤子: {'全新带吊牌':[22,55], 近新:[16,38], 良好:[11,28], '明显使用痕迹':[5,15]},
+      外套: {'全新带吊牌':[35,120], 近新:[25,85], 良好:[15,60], '明显使用痕迹':[8,30]},
+      裙子: {'全新带吊牌':[20,58], 近新:[14,38], 良好:[9,26], '明显使用痕迹':[4,15]},
+      鞋子: {'全新带吊牌':[28,90], 近新:[20,70], 良好:[12,45], '明显使用痕迹':[6,25]},
+      包包: {'全新带吊牌':[30,130], 近新:[22,90], 良好:[14,65], '明显使用痕迹':[7,35]}
+    };
+
+    const endings = {
+      de: 'Keine Rücknahme, Privatverkauf.',
+      en: 'No returns, private sale.',
+      zh: '不退不换，私人出售。'
+    };
+
+    const templates = {
+      de: (it) => `${it.brand} ${it.name} in ${it.color}, Größe ${it.size}. Zustand: ${it.condition}. Gepflegt, hochwertiger Eindruck und sehr gut kombinierbar für Alltag oder Office. Versandbereit und wie beschrieben. ${endings.de}`,
+      en: (it) => `${it.brand} ${it.name} in ${it.color}, size ${it.size}. Condition: ${it.condition}. Well-kept piece with quality feel and an easy-to-style fit for daily outfits or smart casual looks. Ready to ship and exactly as listed. ${endings.en}`,
+      zh: (it) => `${it.brand}${it.name}，${it.color}，尺码${it.size}。成色：${it.condition}。整体状态维护好，版型与质感在线，日常通勤或提升穿搭都很合适，已整理好可直接发货。${endings.zh}`
+    };
+
+    let items = load();
+    let photoCache = [];
+
+    const form = document.getElementById('item-form');
+    const list = document.getElementById('list');
+    const pick = document.getElementById('pick');
+
+    document.getElementById('photos').addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []).slice(0, 6);
+      photoCache = await Promise.all(files.map(toBase64));
+      drawPreview(photoCache);
+    });
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = val('id') || crypto.randomUUID();
+      const existing = items.find((x) => x.id === id);
+      const payload = {
+        id,
+        name: val('name').trim(),
+        brand: val('brand').trim(),
+        category: val('category'),
+        size: val('size').trim(),
+        color: val('color').trim(),
+        condition: val('condition'),
+        origin: num('origin'),
+        sale: num('sale'),
+        status: val('status'),
+        photos: photoCache.length ? photoCache.slice(0, 6) : (existing?.photos || []),
+        updatedAt: Date.now()
+      };
+
+      const i = items.findIndex((x) => x.id === id);
+      if (i >= 0) items[i] = payload;
+      else items.unshift(payload);
+
+      save();
+      reset();
+      render();
+    });
+
+    document.getElementById('search').addEventListener('input', drawList);
+    document.getElementById('filter').addEventListener('change', drawList);
+
+    document.querySelectorAll('.nav').forEach((b) => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.nav').forEach((x) => x.classList.remove('active'));
+        document.querySelectorAll('.tabs').forEach((x) => x.classList.remove('active'));
+        b.classList.add('active');
+        document.getElementById(b.dataset.tab).classList.add('active');
+      });
+    });
+
+    document.getElementById('gen').addEventListener('click', () => {
+      const item = items.find((x) => x.id === pick.value);
+      if (!item) return;
+
+      const lang = val('lang');
+      document.getElementById('desc').value = templates[lang](item);
+
+      const [low, high] = refs[item.category]?.[item.condition] || [10, 30];
+      const fast = Math.round(low * 0.95);
+      const rec = Math.round((low + high) / 2);
+      const max = Math.round(high * 1.1);
+
+      document.getElementById('tiers').innerHTML = `
+        <li>快速出售价：€${fast}</li>
+        <li>推荐价：€${rec}</li>
+        <li>最高尝试价：€${max}</li>
+      `;
+      document.getElementById('logic').textContent = `逻辑：基于 ${item.category} 在“${item.condition}”下常见区间 €${low}-€${high}。快速价偏低换速度，推荐价平衡收益与成交率，最高尝试价用于先测试买家接受度。`;
+    });
+
+    function render() {
+      const live = items.filter((x) => x.status === '在售中').length;
+      const sold = items.filter((x) => x.status === '已售出').length;
+      const revenue = items.filter((x) => x.status === '已售出').reduce((s, x) => s + (x.sale || 0), 0);
+      document.getElementById('s-total').textContent = String(items.length);
+      document.getElementById('s-live').textContent = String(live);
+      document.getElementById('s-sold').textContent = String(sold);
+      document.getElementById('s-revenue').textContent = revenue.toFixed(2);
+      drawList();
+      drawPick();
+      drawRefTable();
+    }
+
+    function drawList() {
+      const kw = val('search').trim().toLowerCase();
+      const f = val('filter');
+      const shown = items.filter((x) => {
+        const hitText = [x.name, x.brand, x.color].join(' ').toLowerCase().includes(kw);
+        const hitStatus = f === 'all' || x.status === f;
+        return hitText && hitStatus;
+      });
+
+      if (!shown.length) {
+        list.innerHTML = '<li class="item">暂无匹配商品。</li>';
+        return;
+      }
+
+      list.innerHTML = shown.map((x) => `
+        <li class="item">
+          <strong>${esc(x.brand)} ${esc(x.name)}</strong>
+          <div class="meta">${x.category} · ${x.size} · ${x.color} · ${x.condition}</div>
+          <div class="meta">状态：${x.status} · 售价：€${x.sale ?? '-'}</div>
+          ${x.photos?.[0] ? `<img src="${x.photos[0]}" alt="封面" style="width:84px;height:84px;object-fit:cover;border-radius:8px;"/>` : ''}
+          <div class="actions">
+            <button class="secondary" onclick="editItem('${x.id}')">编辑</button>
+            <button class="danger" onclick="removeItem('${x.id}')">删除</button>
+          </div>
+        </li>
+      `).join('');
+    }
+
+    function drawPick() {
+      pick.innerHTML = '<option value="">请选择商品</option>' +
+        items.map((x) => `<option value="${x.id}">${esc(x.brand)} ${esc(x.name)}</option>`).join('');
+    }
+
+    function drawRefTable() {
+      const rows = Object.entries(refs).map(([cat, c]) => {
+        const summary = Object.entries(c).map(([k, v]) => `${k}: €${v[0]}-${v[1]}`).join('<br>');
+        return `<tr><td>${cat}</td><td>${summary}</td></tr>`;
+      }).join('');
+
+      document.getElementById('table-wrap').innerHTML = `
+        <table>
+          <thead><tr><th>类别</th><th>参考区间（按成色）</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    function drawPreview(arr) {
+      document.getElementById('preview').innerHTML = arr.slice(0, 6).map((src) => `<img src="${src}" alt="预览图"/>`).join('');
+    }
+
+    window.editItem = (id) => {
+      const x = items.find((i) => i.id === id);
+      if (!x) return;
+      set('id', x.id); set('name', x.name); set('brand', x.brand); set('category', x.category);
+      set('size', x.size); set('color', x.color); set('condition', x.condition); set('origin', x.origin ?? '');
+      set('sale', x.sale ?? ''); set('status', x.status);
+      photoCache = x.photos || [];
+      drawPreview(photoCache);
+      document.getElementById('inventory').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    window.removeItem = (id) => {
+      items = items.filter((x) => x.id !== id);
+      save();
+      render();
+    };
+
+    function reset() {
+      form.reset();
+      set('id', '');
+      photoCache = [];
+      drawPreview([]);
+    }
+
+    function save() { localStorage.setItem(KEY, JSON.stringify(items)); }
+    function load() { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } }
+    function val(id) { return document.getElementById(id).value; }
+    function set(id, v) { document.getElementById(id).value = v; }
+    function num(id) { const v = val(id); return v === '' ? null : Number(v); }
+    function toBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+    function esc(s = '') {
+      return s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+    }
+
+    render();
+  </script>
+</body>
+</html>
